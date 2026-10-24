@@ -1,0 +1,1568 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+task.wait(0.1)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local vibe = Players.LocalPlayer
+local mode = "VOID"
+local busy = false
+local homePos = nil
+local canSnap = false
+local chosenGear = nil
+local r6Swapped = false
+local credsView = false
+local originalDeathY = workspace.FallenPartsDestroyHeight or -500
+local maxCoords = CFrame.new(9e9, 9999999, 9e9)
+local lowDeathY = -9e9
+
+local softTp = 7
+local hardTp = 25
+local velFactor = 2.5
+local panicTimer = 2
+local flashTimer = 2
+
+local palette = {
+    VOID = Color3.fromRGB(190, 210, 255),
+    EXTREME = Color3.fromRGB(255, 150, 190),
+    BRING = Color3.fromRGB(150, 255, 190),
+    GIVE = Color3.fromRGB(255, 210, 130),
+}
+
+local roastLines = {
+    VOID = {
+        working = {
+            "bouta cook this mf a one-way ticket to the shadow realm, hold tight 💀",
+            "sending this clown on a permanent vacation, dont wait up ✈️",
+            "prepping the void express rn, all aboard except the target 💀",
+            "cooking up some existential deletion, patience you clown ⏳",
+            "this mf about to find out what nonexistence feels like fr 🕳️",
+        },
+        success = {
+            "LMAOOO HE'S GONE 😭 deleted from existence, gone reduced to atoms fr",
+            "sent bro to the shadow realm, he prolly fighting demons rn 💀⚰️",
+            "coordinates: 404 not found. officially a void entity now 🗑️",
+            "yeeted into the abyss, gone before he could type 'wait' 💀",
+            "not on the map anymore, bro is canonically nonexistent fr 🗿",
+            "cooked. toasted. evicted from reality. take notes kids 📝🔥",
+            "absolute cinema 🎬 got deleted harder than a corrupted save file 💀",
+        },
+        notfound = {
+            "aint nobody named that here chief, you good? reading is fundamental 📚",
+            "typed a name that doesn't exist, keyboard broken or fingers fat? 💀",
+            "searched for a ghost, found nothing, embarrassing fr 👻",
+            "that name aint real, go back to elementary and try again 📖",
+            "hallucinating again, imaginary friends aint real in this server 💀",
+        },
+        notool = {
+            "you aint have a tool equipped, fighting with bare fists now? 🥊",
+            "0 tools in inventory, bag drier than the sahara 🏜️💀",
+            "empty handed, you really thought you could cook like this? embarrassing",
+            "no tool = no service, go grab something first before wasting my time ⏰",
+            "backpack emptier than his brain rn, get a tool first LMAOOO",
+        },
+        nochar = {
+            "your character is nonexistent rn, respawn before asking for service 💀",
+            "no body no service, wait for your character to load properly",
+            "got no char, you in the respawn screen crying rn 💀👻",
+            "schrodinger's character fr, aint there yet, try again in a bit",
+        },
+        empty = {
+            "typed NOTHING, keyboard broken or just lazy? type a name first 💀",
+            "input is blank, what are we voiding? the air? 💨",
+            "forgot to type, 0 effort, 0 results, try again chief",
+        },
+        shielded = {
+            "bro tried firetouchinterest, blocked fr 🔥🛡️",
+            "thought he could touch me remotely, TouchTransmitter said NOPE 💀",
+            "bring attempt detected and nullified, shield stays undefeated 🛡️",
+            "attacker tried firetouchinterest, script now purely decorative 📖💀",
+            "shield said NOT TODAY, ur bring method is now a visual novel 😂",
+            "got cucked by the shield, his script cried, skill issue on his end 💀",
+            "new gen attacker said 'let me cook' and shield said 'nah' LMAOOO",
+        },
+    },
+    EXTREME = {
+        working = {
+            "going beyond reality for this one, hold up 🌌",
+            "cooking the most exaggerated deletion in history rn 💀",
+            "prepping coords that would break NASA's computer 🚀",
+            "sending this mf to 9e9 territory, buckle up ✈️",
+            "loading EXTREME mode, this aint your average void 💀🔥",
+        },
+        success = {
+            "LMAOOO sent him to coordinates that LITERALLY DONT EXIST 💀🚀",
+            "bro is now beyond the void, in the EXTREME realm fr 🌌",
+            "EXTREME success, devs can't find him, he's lost in the multiverse 🗿",
+            "coords would break NASA's computer, bro is GONE fr gg 💀🚀",
+            "deleted at an incomprehensible scale, absolutely cooked 🔥🗿",
+            "sent so far even roblox servers lagged, bro is beyond reality 🌌",
+        },
+        notfound = {
+            "expected EXTREME results with a fake name?? peak comedy 💀",
+            "aint nobody named that, want EXTREME void but typed nonsense?? 😭",
+            "brain more lost than the EXTREME coordinates, wake up 💀🧠",
+            "searched for a ghost expecting EXTREME treatment, LMAOOO 👻",
+        },
+        notool = {
+            "got NO TOOL but wants EXTREME void?? ambitious but stupid 💀🔥",
+            "0 tools, EXTREME void requires tools, not imaginary friends 💀",
+            "said 'EXTREME void' with EMPTY inventory, the audacity is EXTREME 😭",
+            "EXTREME cooking needs actual ingredients, not vibes 🍳💀",
+        },
+        nochar = {
+            "no char but wants EXTREME void?? you literally a ghost rn 💀👻",
+            "EXTREME void requires actual existence, respawn first ⏳",
+            "characterless, cant do EXTREME stuff without a body 💀",
+        },
+        empty = {
+            "typed NOTHING but wants EXTREME results?? peak delusion 💀",
+            "EXTREME void requires EXTREME name, not EMPTY textbox 📝",
+            "textbox EMPTY, want EXTREME but can't type a name, skill issue 💀",
+        },
+        shielded = {
+            "bro tried firetouchinterest, blocked fr 🔥🛡️",
+            "thought he could touch me remotely, TouchTransmitter said NOPE 💀",
+            "bring attempt detected and nullified, shield stays undefeated 🛡️",
+            "attacker tried firetouchinterest, script now purely decorative 📖💀",
+            "shield said NOT TODAY, ur bring method is now a visual novel 😂",
+            "got cucked by the shield, his script cried, skill issue on his end 💀",
+            "new gen attacker said 'let me cook' and shield said 'nah' LMAOOO",
+        },
+    },
+    BRING = {
+        working = {
+            "yoinking this mf to my location, hold tight 🪝",
+            "fetching the target, dont blink or you'll miss it 👀",
+            "summoning this clown rn, magic in progress ✨",
+            "pulling up on this mf, bring service in motion 🧲",
+            "cooking up a fresh kidnap attempt, chef's working 🍳",
+        },
+        success = {
+            "LMAOOO he's right next to me now, absolutely yoinked 🪝💀",
+            "summoned him across the map, bro confused af rn 😭",
+            "bro got teleported to my feet, no questions asked ✨",
+            "kidnapped successfully, he's now my personal NPC fr 🗿",
+            "yoink achieved, bro is stuck with me now LMAOOO 💀",
+            "pulled up on him so hard, he dont even know what happened 😂",
+            "brought bro to the cook, now he's part of the squad fr 💀",
+        },
+        notfound = {
+            "want to bring someone who doesn't exist?? peak comedy 💀",
+            "that name aint real, who you tryna bring? imaginary friend? 😭",
+            "aint nobody named that exists, tryna bring a ghost or sum?? 👻",
+            "brain on vacation fr, type a real name next time 💀",
+        },
+        notool = {
+            "got NO tool but wants to BRING someone?? ambitious but broke 💀🔥",
+            "0 tools in inventory, bring service requires actual equipment 🗑️",
+            "said 'bring him' with NOTHING equipped, the audacity is wild 😭",
+            "no tool bro, you gonna bring someone with ur bare hands?? 💀",
+        },
+        nochar = {
+            "no char but wants to bring someone?? you a ghost trying to yoink another ghost 💀👻",
+            "bring service requires actual existence, respawn first ⏳",
+            "characterless, cant bring nobody without a body lil bro 💀",
+        },
+        empty = {
+            "typed NOTHING and wants to BRING someone?? bring who? the air?? 💨",
+            "textbox EMPTY, who you bringing? nobody? not how this works chief 📝",
+            "typed nothing, expected a bring, the delusion is wild fr 💀",
+        },
+        shielded = {
+            "bro tried firetouchinterest, blocked fr 🔥🛡️",
+            "thought he could touch me remotely, TouchTransmitter said NOPE 💀",
+            "bring attempt detected and nullified, shield stays undefeated 🛡️",
+            "attacker tried firetouchinterest, script now purely decorative 📖💀",
+            "shield said NOT TODAY, ur bring method is now a visual novel 😂",
+            "got cucked by the shield, his script cried, skill issue on his end 💀",
+            "new gen attacker said 'let me cook' and shield said 'nah' LMAOOO",
+        },
+    },
+    GIVE = {
+        working = {
+            "donating your tool to this lucky mf, generosity overload 🎁",
+            "processing give order, charity arc in motion 💝",
+            "giving away your whole inventory, santa mode activated 🎅",
+            "bro bouta get blessed with free tools, hold up ✨",
+            "cooking up a gift for this mf, generous ahh fr 🎁",
+        },
+        success = {
+            "LMAOOO gave away your whole inventory, santa fr 🎅😂",
+            "charity complete, this mf got blessed with tools for free 💀",
+            "donated everything to this mf, robin hood of tools fr 🏹",
+            "gave away your entire loadout, tooless philanthropist now 💀",
+            "gifted so hard he dont even know what hit him, free tools fr 🎁🔥",
+            "reverse yoink successful, gave your tools away like candy 🍬😂",
+            "bro really gave away everything, generosity level: MAX fr 💀🙏",
+        },
+        notfound = {
+            "want to GIVE to someone who doesn't exist?? generous but delusional 💀",
+            "that name aint real, who you giving to? imaginary friend? 😭",
+            "aint nobody named that, wanna give tools to a ghost or sum?? 👻",
+            "searched a nonexistent name to give tools to, generosity wasted on nobodies 💀",
+        },
+        notool = {
+            "got NO tool to GIVE?? broke AND generous?? crazy work fr 💀🔥",
+            "0 tools in inventory, what you gonna give? air?? 😭",
+            "said 'im giving my tools' with NOTHING equipped, the irony 😂",
+            "no tool detected, cant give what you dont have, broke ahh bro 💀",
+        },
+        nochar = {
+            "no char but wants to GIVE?? ghost tryna give gifts, what a twist 💀👻",
+            "give service requires actual existence, respawn first ⏳",
+            "characterless, cant give nothing without a body lil bro 💀",
+        },
+        empty = {
+            "typed NOTHING and wants to GIVE?? give to who? the void? 🕳️",
+            "textbox EMPTY, giving to nobody? not how charity works chief 📝",
+            "typed nothing, expected give to work, generous but illiterate fr 💀",
+        },
+        shielded = {
+            "bro tried firetouchinterest, blocked fr 🔥🛡️",
+            "thought he could touch me remotely, TouchTransmitter said NOPE 💀",
+            "bring attempt detected and nullified, shield stays undefeated 🛡️",
+            "attacker tried firetouchinterest, script now purely decorative 📖💀",
+            "shield said NOT TODAY, ur bring method is now a visual novel 😂",
+            "got cucked by the shield, his script cried, skill issue on his end 💀",
+            "new gen attacker said 'let me cook' and shield said 'nah' LMAOOO",
+        },
+    },
+}
+
+local function grabLine(m, cat)
+    local bag = roastLines[m] or roastLines.VOID
+    local list = bag[cat]
+    if not list or #list == 0 then return "bro something happened 💀" end
+    return list[math.random(1, #list)]
+end
+
+local function fireCmd(...)
+    return ReplicatedStorage:WaitForChild("01_server"):FireServer(...)
+end
+
+local function forceReset() fireCmd("cmd", "-re") end
+local function stripHats() fireCmd("cmd", "-ch") end
+local function swapR6() fireCmd("cmd", "-r6") end
+local function swapR15() fireCmd("cmd", "-r15") end
+
+local function findPlayer(name)
+    if not name or name == "" then return end
+    name = name:lower():gsub("([%.%+%-%*%?%[%]%^%$%(%)%%])", "%%%1")
+    for _, a in Players:GetPlayers() do
+        if a ~= vibe then
+            local char = a.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local n, d = a.Name:lower(), a.DisplayName:lower()
+                    if n:find("^" .. name) or d:find("^" .. name) then
+                        return a
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function runMain(targetName)
+    local target = findPlayer(targetName)
+    if not target then return false end
+    local targetchar = target.Character
+    if not targetchar then return false end
+    local targethrp = targetchar:FindFirstChild("HumanoidRootPart") or targetchar:WaitForChild("HumanoidRootPart", 5)
+    if not targethrp then return false end
+    local char = vibe.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local backpack = vibe:FindFirstChild("Backpack")
+    if not backpack then return false end
+    local tool = chosenGear and (char:FindFirstChild(chosenGear) or backpack:FindFirstChild(chosenGear)) or (char:FindFirstChildOfClass("Tool") or backpack:FindFirstChildOfClass("Tool"))
+    if not tool then return "NO TOOL" end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.RigType ~= Enum.HumanoidRigType.R6 then
+        swapR6()
+        r6Swapped = true
+        task.wait(0.35)
+        char = vibe.Character
+        if not char then return false end
+        hrp = char:FindFirstChild("HumanoidRootPart")
+        backpack = vibe:FindFirstChild("Backpack")
+        if not backpack then return false end
+        tool = chosenGear and (char:FindFirstChild(chosenGear) or backpack:FindFirstChild(chosenGear)) or (char:FindFirstChildOfClass("Tool") or backpack:FindFirstChildOfClass("Tool"))
+        if not tool then return "NO TOOL" end
+    end
+    task.wait(0.2)
+    stripHats()
+    local savedDeathY = workspace.FallenPartsDestroyHeight
+    if mode == "GIVE" then
+        if hrp then hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end
+        if char:FindFirstChildOfClass("Humanoid") then char:FindFirstChildOfClass("Humanoid"):Destroy() end
+        task.wait(0.05)
+        Instance.new("Humanoid").Parent = char
+        tool.Parent = char
+        local handle = tool:FindFirstChild("Handle")
+        local giveStart = os.clock()
+        while tool.Parent == char and (os.clock() - giveStart) < 3 do
+            task.wait()
+            pcall(function()
+                if hrp then hrp.CFrame = targethrp.CFrame end
+                if handle then handle.CFrame = targethrp.CFrame end
+            end)
+        end
+        workspace.FallenPartsDestroyHeight = savedDeathY
+        vibe.Character = nil
+        fireCmd("cmd", "-rs")
+        forceReset()
+        return true
+    end
+    char.Archivable = true
+    local copy = char:Clone()
+    task.wait(0.05)
+    vibe.Character = copy
+    task.wait(0.1)
+    vibe.Character = char
+    task.wait(0.1)
+    if copy and copy.Parent then copy:Destroy() end
+    if hrp then hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end
+    if char:FindFirstChildOfClass("Humanoid") then char:FindFirstChildOfClass("Humanoid"):Destroy() end
+    task.wait(0.05)
+    Instance.new("Humanoid").Parent = char
+    task.wait(0.05)
+    tool.Grip = CFrame.new(0, 0, 0)
+    tool.Parent = char
+    local handle = tool:FindFirstChild("Handle")
+    local noclip = RunService.Stepped:Connect(function()
+        if char and char.Parent then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end)
+    local touched = false
+    local touchTime = 0
+    local startTime = os.clock()
+    repeat
+        RunService.Stepped:Wait()
+        if not tool or not tool:IsDescendantOf(game) then break end
+        if tool.Parent ~= char and tool.Parent ~= targetchar and tool.Parent ~= workspace then break end
+        if not touched and (os.clock() - startTime > 5.0) then break end
+        if targetchar and targethrp and hrp then
+            if tool.Parent == targetchar and not touched then
+                touched = true
+                touchTime = os.clock()
+                if mode == "BRING" then
+                    task.wait(0.15)
+                    break
+                else
+                    task.wait(0.02)
+                end
+            end
+            if touched then
+                if mode == "VOID" then
+                    workspace.FallenPartsDestroyHeight = lowDeathY
+                    local vcf = CFrame.new(hrp.Position.X, (originalDeathY or savedDeathY or -500) - 25, hrp.Position.Z)
+                    hrp.CFrame = vcf
+                    pcall(function()
+                        targethrp.CFrame = vcf
+                        targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    end)
+                    if os.clock() - touchTime > 1.5 then break end
+                elseif mode == "EXTREME" then
+                    workspace.FallenPartsDestroyHeight = lowDeathY
+                    hrp.CFrame = maxCoords
+                    pcall(function()
+                        targethrp.CFrame = maxCoords
+                        targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    end)
+                    if os.clock() - touchTime > 2.0 then break end
+                elseif mode == "BRING" then
+                    if homePos then
+                        hrp.CFrame = homePos
+                        pcall(function()
+                            targethrp.CFrame = homePos
+                            targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        end)
+                    end
+                    if os.clock() - touchTime > 1.8 then break end
+                end
+            else
+                if mode == "EXTREME" then
+                    pcall(function() hrp.CFrame = targethrp.CFrame end)
+                    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                elseif mode == "VOID" then
+                    workspace.FallenPartsDestroyHeight = lowDeathY
+                    if homePos then
+                        local preV = CFrame.new(homePos.Position.X, (originalDeathY or savedDeathY or -500) - 25, homePos.Position.Z)
+                        hrp.CFrame = preV
+                        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    end
+                    pcall(function()
+                        if handle then
+                            targethrp.CFrame = handle.CFrame
+                            targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        end
+                    end)
+                else
+                    pcall(function()
+                        if handle then
+                            targethrp.CFrame = handle.CFrame
+                            targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        end
+                    end)
+                    if homePos then
+                        hrp.CFrame = homePos
+                        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end
+        else
+            break
+        end
+    until tool.Parent == workspace
+    workspace.FallenPartsDestroyHeight = savedDeathY
+    if noclip then noclip:Disconnect() end
+    if mode == "BRING" then
+        if hrp and homePos then
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            hrp.CFrame = homePos
+            pcall(function()
+                targethrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                targethrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                targethrp.CFrame = homePos
+            end)
+            task.wait(0.4)
+        end
+    else
+        if hrp and homePos then
+            hrp.CFrame = homePos
+            RunService.Heartbeat:Wait()
+        end
+    end
+    vibe.Character = nil
+    return true
+end
+
+local function awaitSpawn(timeout)
+    local deadline = os.clock() + (timeout or 5)
+    local fired = false
+    local conn = vibe.CharacterAdded:Connect(function() fired = true end)
+    while os.clock() < deadline and not fired do task.wait(0.05) end
+    conn:Disconnect()
+    return fired
+end
+
+local function snapHome()
+    if not canSnap or not homePos then return end
+    local target = homePos
+    local newChar = vibe.Character
+    local deadline = os.clock() + 3
+    while not newChar and os.clock() < deadline do
+        task.wait(0.05)
+        newChar = vibe.Character
+    end
+    if not newChar then return end
+    task.wait(0.15)
+    for _ = 1, 4 do
+        local hrp = newChar:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = target
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+        task.wait(0.15)
+    end
+end
+
+local function executeFlow(targetName)
+    if busy then return end
+    local char = vibe.Character
+    if not char or not char:FindFirstChildOfClass("Humanoid") then return "NO CHAR" end
+    busy = true
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    homePos = hrp and hrp.CFrame or nil
+    canSnap = true
+    local status = runMain(targetName)
+    if not status or status == "NO TOOL" then
+        busy = false
+        homePos = nil
+        canSnap = false
+        return (status == "NO TOOL") and "NO TOOL" or "NOT FOUND"
+    end
+    for _ = 1, 3 do
+        vibe.Character = nil
+        forceReset()
+        if awaitSpawn(1.2) then break end
+    end
+    snapHome()
+    if r6Swapped then
+        r6Swapped = false
+        swapR15()
+    end
+    homePos = nil
+    canSnap = false
+    busy = false
+    task.wait(0.15)
+    return "SUCCESS"
+end
+
+local function grad(inst, c1, c2, rot)
+    local g = Instance.new("UIGradient", inst)
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, c1),
+        ColorSequenceKeypoint.new(1, c2)
+    })
+    g.Rotation = rot or 90
+    return g
+end
+
+local function hoverFx(btn)
+    local base = btn.BackgroundColor3
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = base:Lerp(Color3.fromRGB(255, 255, 255), 0.22)
+        }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = base
+        }):Play()
+    end)
+end
+
+local function buildUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ToolVoidByTory"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.ResetOnSpawn = false
+
+    local shell = Instance.new("Frame", gui)
+    shell.Name = "ToolVoid"
+    shell.BorderSizePixel = 0
+    shell.BackgroundColor3 = Color3.fromRGB(121, 109, 159)
+    shell.Size = UDim2.new(0.24862, 0, 0.08609, 0)
+    shell.AnchorPoint = Vector2.new(0.5, 0.5)
+    shell.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shell.Active = true
+    shell.Draggable = true
+    shell.ClipsDescendants = false
+
+    Instance.new("UICorner", shell).CornerRadius = UDim.new(0, 8)
+    grad(shell, Color3.fromRGB(138, 125, 178), Color3.fromRGB(100, 90, 140), 90)
+
+    local shellStroke = Instance.new("UIStroke", shell)
+    shellStroke.Color = Color3.fromRGB(140, 255, 191)
+    shellStroke.Thickness = 1.5
+    shellStroke.Transparency = 0.25
+
+    local sh = Instance.new("ImageLabel", shell)
+    sh.Name = "Shadow"
+    sh.AnchorPoint = Vector2.new(0.5, 0.5)
+    sh.Position = UDim2.new(0.5, 0, 0.5, 4)
+    sh.Size = UDim2.new(1, 10, 1, 10)
+    sh.BackgroundTransparency = 1
+    sh.Image = "rbxassetid://1316045217"
+    sh.ImageColor3 = Color3.new(0, 0, 0)
+    sh.ImageTransparency = 0.6
+    sh.ScaleType = Enum.ScaleType.Slice
+    sh.SliceCenter = Rect.new(10, 10, 90, 90)
+    sh.ZIndex = 0
+
+    local ratio = Instance.new("UIAspectRatioConstraint", shell)
+    ratio.AspectRatio = 6.92308
+
+    local closeBtn = Instance.new("TextButton", shell)
+    closeBtn.Name = "Close"
+    closeBtn.BorderSizePixel = 0
+    closeBtn.TextSize = 22
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 61, 136)
+    closeBtn.FontFace = Font.new("rbxasset://fonts/families/ComicNeueAngular.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    closeBtn.Size = UDim2.new(0.14444, 0, 1, 0)
+    closeBtn.Position = UDim2.new(0.85556, 0, 0, 0)
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+    grad(closeBtn, Color3.fromRGB(255, 100, 165), Color3.fromRGB(220, 40, 115), 90)
+    hoverFx(closeBtn)
+
+    local minBtn = Instance.new("TextButton", shell)
+    minBtn.Name = "Minimize"
+    minBtn.BorderSizePixel = 0
+    minBtn.TextSize = 22
+    minBtn.BackgroundColor3 = Color3.fromRGB(219, 255, 191)
+    minBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    minBtn.Size = UDim2.new(0.14444, 0, 1, 0)
+    minBtn.Position = UDim2.new(0.71111, 0, 0, 0)
+    minBtn.Text = "-"
+    minBtn.TextColor3 = Color3.fromRGB(50, 80, 40)
+    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
+    grad(minBtn, Color3.fromRGB(230, 255, 205), Color3.fromRGB(180, 235, 155), 90)
+    hoverFx(minBtn)
+
+    local plusBtn = Instance.new("TextButton", shell)
+    plusBtn.Name = "ToolToggle"
+    plusBtn.BorderSizePixel = 0
+    plusBtn.TextSize = 22
+    plusBtn.BackgroundColor3 = Color3.fromRGB(120, 252, 255)
+    plusBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+    plusBtn.Size = UDim2.new(0.14444, 0, 1, 0)
+    plusBtn.Position = UDim2.new(0.56667, 0, 0, 0)
+    plusBtn.Text = "+"
+    plusBtn.TextColor3 = Color3.fromRGB(40, 80, 80)
+    Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 6)
+    grad(plusBtn, Color3.fromRGB(150, 255, 255), Color3.fromRGB(85, 225, 235), 90)
+    hoverFx(plusBtn)
+
+    local credBtn = Instance.new("TextButton", shell)
+    credBtn.Name = "Credits"
+    credBtn.BorderSizePixel = 0
+    credBtn.TextSize = 11
+    credBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 130)
+    credBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    credBtn.Size = UDim2.new(0.14444, 0, 1, 0)
+    credBtn.Position = UDim2.new(0.42, 0, 0, 0)
+    credBtn.Text = "c"
+    credBtn.TextColor3 = Color3.fromRGB(80, 50, 10)
+    Instance.new("UICorner", credBtn).CornerRadius = UDim.new(0, 6)
+    grad(credBtn, Color3.fromRGB(255, 240, 170), Color3.fromRGB(230, 180, 60), 90)
+    hoverFx(credBtn)
+
+    local remLabel = Instance.new("TextLabel", shell)
+    remLabel.Name = "remastered"
+    remLabel.BorderSizePixel = 0
+    remLabel.BackgroundTransparency = 1
+    remLabel.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Italic)
+    remLabel.Size = UDim2.new(0.35, 0, 0.3, 0)
+    remLabel.Position = UDim2.new(0.05, 0, 0.13, 0)
+    remLabel.Text = "remastered version"
+    remLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    remLabel.TextScaled = true
+    remLabel.TextTransparency = 0.1
+
+    local remGrad = grad(remLabel, Color3.fromRGB(255, 220, 130), Color3.fromRGB(150, 255, 200), 45)
+
+    local remStroke = Instance.new("UIStroke", remLabel)
+    remStroke.Color = Color3.fromRGB(150, 255, 200)
+    remStroke.Thickness = 0.7
+    remStroke.Transparency = 0.3
+    remStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+
+    local titleLbl = Instance.new("TextLabel", shell)
+    titleLbl.Name = "title"
+    titleLbl.TextWrapped = true
+    titleLbl.BorderSizePixel = 0
+    titleLbl.TextSize = 13
+    titleLbl.BackgroundColor3 = Color3.fromRGB(121, 109, 159)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.FontFace = Font.new("rbxasset://fonts/families/PressStart2P.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    titleLbl.Size = UDim2.new(0.35, 0, 0.55, 0)
+    titleLbl.Position = UDim2.new(0.05, 0, 0.42, 0)
+    titleLbl.Text = "By Tory"
+    titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLbl.TextScaled = true
+    grad(titleLbl, Color3.fromRGB(255, 200, 255), Color3.fromRGB(140, 255, 191), 45)
+
+    local titleStroke = Instance.new("UIStroke", titleLbl)
+    titleStroke.Color = Color3.fromRGB(255, 210, 255)
+    titleStroke.Thickness = 0.7
+    titleStroke.Transparency = 0.45
+    titleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+
+    task.spawn(function()
+        local t = 0
+        while remLabel and remLabel.Parent do
+            t = t + 0.025
+            local wave = math.sin(t * 1.4)
+            local pulse = 0.5 + wave * 0.5
+            remGrad.Offset = Vector2.new(wave * 0.5, 0)
+            remLabel.TextTransparency = 0.05 + pulse * 0.25
+            remStroke.Transparency = 0.2 + pulse * 0.35
+            task.wait(0.025)
+        end
+    end)
+
+    local mainBox = Instance.new("Frame", shell)
+    mainBox.Name = "MainGui"
+    mainBox.BorderSizePixel = 0
+    mainBox.BackgroundColor3 = Color3.fromRGB(168, 151, 221)
+    mainBox.Size = UDim2.new(0.98889, 0, 5.69231, 0)
+    mainBox.Position = UDim2.new(0.00344, 0, 1.07539, 0)
+    mainBox.BackgroundTransparency = 0.15
+    mainBox.ClipsDescendants = true
+    mainBox.ZIndex = 5
+    Instance.new("UICorner", mainBox).CornerRadius = UDim.new(0, 8)
+    grad(mainBox, Color3.fromRGB(185, 168, 235), Color3.fromRGB(150, 135, 205), 90)
+
+    local mainStroke = Instance.new("UIStroke", mainBox)
+    mainStroke.Color = Color3.fromRGB(200, 185, 245)
+    mainStroke.Thickness = 1
+    mainStroke.Transparency = 0.4
+
+    local modeShow = Instance.new("TextLabel", mainBox)
+    modeShow.Name = "ShowMode"
+    modeShow.BorderSizePixel = 0
+    modeShow.TextSize = 15
+    modeShow.BackgroundTransparency = 1
+    modeShow.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Italic)
+    modeShow.Size = UDim2.new(0.49438, 0, 0.24324, 0)
+    modeShow.Position = UDim2.new(0.02222, 0, 0.41892, 0)
+    modeShow.Text = "current mode:"
+    modeShow.TextColor3 = Color3.fromRGB(245, 240, 255)
+
+    local modeLbl = Instance.new("TextLabel", modeShow)
+    modeLbl.Name = "Mode"
+    modeLbl.BorderSizePixel = 0
+    modeLbl.TextSize = 15
+    modeLbl.TextXAlignment = Enum.TextXAlignment.Left
+    modeLbl.BackgroundTransparency = 1
+    modeLbl.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Italic)
+    modeLbl.Size = UDim2.new(0.61364, 0, 0.77778, 0)
+    modeLbl.Position = UDim2.new(0.90909, 0, 0.11111, 0)
+    modeLbl.Text = "VOID"
+    modeLbl.TextColor3 = Color3.fromRGB(190, 210, 255)
+
+    local inputBox = Instance.new("TextBox", mainBox)
+    inputBox.Name = "ChoosePlayer"
+    inputBox.BorderSizePixel = 0
+    inputBox.TextWrapped = true
+    inputBox.TextScaled = true
+    inputBox.BackgroundColor3 = Color3.fromRGB(210, 205, 230)
+    inputBox.Size = UDim2.new(0.89888, 0, 0.24324, 0)
+    inputBox.Position = UDim2.new(0.05556, 0, 0.24324, 0)
+    inputBox.Text = ""
+    inputBox.PlaceholderText = "type user/display name"
+    inputBox.PlaceholderColor3 = Color3.fromRGB(120, 115, 150)
+    inputBox.TextColor3 = Color3.fromRGB(40, 35, 60)
+    inputBox.ClearTextOnFocus = false
+    Instance.new("UICorner", inputBox).CornerRadius = UDim.new(0, 6)
+
+    local inputStroke = Instance.new("UIStroke", inputBox)
+    inputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    inputStroke.Color = Color3.fromRGB(245, 255, 135)
+    inputStroke.Thickness = 1.5
+    inputStroke.Transparency = 0.2
+
+    inputBox.Focused:Connect(function()
+        TweenService:Create(inputStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0, Thickness = 2}):Play()
+    end)
+    inputBox.FocusLost:Connect(function()
+        TweenService:Create(inputStroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.2, Thickness = 1.5}):Play()
+    end)
+
+    local switchBtn = Instance.new("TextButton", mainBox)
+    switchBtn.BorderSizePixel = 0
+    switchBtn.BackgroundColor3 = Color3.fromRGB(234, 210, 255)
+    switchBtn.Size = UDim2.new(0.33708, 0, 0.22973, 0)
+    switchBtn.Position = UDim2.new(0.07778, 0, 0.62162, 0)
+    switchBtn.Text = "switch"
+    switchBtn.TextColor3 = Color3.fromRGB(60, 40, 90)
+    switchBtn.TextSize = 15
+    switchBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+    Instance.new("UICorner", switchBtn).CornerRadius = UDim.new(0, 6)
+    grad(switchBtn, Color3.fromRGB(245, 225, 255), Color3.fromRGB(215, 190, 245), 90)
+
+    local switchStroke = Instance.new("UIStroke", switchBtn)
+    switchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    switchStroke.Color = Color3.fromRGB(180, 160, 220)
+    switchStroke.Transparency = 0.4
+    hoverFx(switchBtn)
+
+    local startBtn = Instance.new("TextButton", mainBox)
+    startBtn.Name = "Start"
+    startBtn.BorderSizePixel = 0
+    startBtn.BackgroundColor3 = Color3.fromRGB(234, 210, 255)
+    startBtn.Size = UDim2.new(0.33708, 0, 0.22973, 0)
+    startBtn.Position = UDim2.new(0.44444, 0, 0.62162, 0)
+    startBtn.Text = "start"
+    startBtn.TextColor3 = Color3.fromRGB(60, 40, 90)
+    startBtn.TextSize = 15
+    startBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+    Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0, 6)
+    grad(startBtn, Color3.fromRGB(245, 225, 255), Color3.fromRGB(215, 190, 245), 90)
+
+    local startStroke = Instance.new("UIStroke", startBtn)
+    startStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    startStroke.Color = Color3.fromRGB(180, 160, 220)
+    startStroke.Transparency = 0.4
+    hoverFx(startBtn)
+
+    local gearList = Instance.new("ScrollingFrame", shell)
+    gearList.Name = "ChooseTool"
+    gearList.BorderSizePixel = 0
+    gearList.BackgroundColor3 = Color3.fromRGB(168, 151, 221)
+    gearList.Size = UDim2.new(0, 140, 0, 200)
+    gearList.Position = UDim2.new(0, -160, 0, 0)
+    gearList.BackgroundTransparency = 0.1
+    gearList.Visible = false
+    gearList.ClipsDescendants = true
+    gearList.ScrollBarThickness = 2
+    gearList.ScrollBarImageColor3 = Color3.fromRGB(200, 185, 245)
+    gearList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    gearList.ZIndex = 10
+    Instance.new("UICorner", gearList).CornerRadius = UDim.new(0, 8)
+    grad(gearList, Color3.fromRGB(185, 168, 235), Color3.fromRGB(150, 135, 205), 90)
+
+    local gearStroke = Instance.new("UIStroke", gearList)
+    gearStroke.Color = Color3.fromRGB(200, 185, 245)
+    gearStroke.Transparency = 0.35
+
+    local gearLayout = Instance.new("UIListLayout", gearList)
+    gearLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    gearLayout.Padding = UDim.new(0, 4)
+
+    local gearPad = Instance.new("UIPadding", gearList)
+    gearPad.PaddingTop = UDim.new(0, 6)
+    gearPad.PaddingBottom = UDim.new(0, 6)
+    gearPad.PaddingLeft = UDim.new(0, 6)
+    gearPad.PaddingRight = UDim.new(0, 6)
+
+    local credPanel = Instance.new("Frame", shell)
+    credPanel.Name = "CreditsPanel"
+    credPanel.BorderSizePixel = 0
+    credPanel.BackgroundColor3 = Color3.fromRGB(35, 28, 55)
+    credPanel.BackgroundTransparency = 0.05
+    credPanel.Size = UDim2.new(0.98889, 0, 5.69231, 0)
+    credPanel.Position = UDim2.new(0.00344, 0, 1.07539, 0)
+    credPanel.Visible = false
+    credPanel.ClipsDescendants = true
+    credPanel.ZIndex = 20
+    Instance.new("UICorner", credPanel).CornerRadius = UDim.new(0, 8)
+    grad(credPanel, Color3.fromRGB(50, 40, 75), Color3.fromRGB(25, 20, 40), 90)
+
+    local credStroke = Instance.new("UIStroke", credPanel)
+    credStroke.Color = Color3.fromRGB(255, 220, 130)
+    credStroke.Thickness = 1.5
+    credStroke.Transparency = 0.25
+
+    local credStar = Instance.new("TextLabel", credPanel)
+    credStar.Name = "Star"
+    credStar.BackgroundTransparency = 1
+    credStar.Size = UDim2.new(1, 0, 0.28, 0)
+    credStar.Position = UDim2.new(0, 0, 0.05, 0)
+    credStar.Text = "★ credits ★"
+    credStar.TextSize = 18
+    credStar.FontFace = Font.new("rbxasset://fonts/families/PressStart2P.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    credStar.TextColor3 = Color3.fromRGB(255, 220, 130)
+    credStar.ZIndex = 21
+
+    local credTxt = Instance.new("TextLabel", credPanel)
+    credTxt.Name = "Text"
+    credTxt.BackgroundTransparency = 1
+    credTxt.Size = UDim2.new(1, -24, 0.45, 0)
+    credTxt.Position = UDim2.new(0, 12, 0.4, 0)
+    credTxt.Text = "remake by LzeX1 im support tory\nngl im support"
+    credTxt.TextSize = 14
+    credTxt.TextWrapped = true
+    credTxt.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Italic)
+    credTxt.TextColor3 = Color3.fromRGB(255, 245, 210)
+    credTxt.ZIndex = 21
+
+    local credClose = Instance.new("TextButton", credPanel)
+    credClose.Name = "Close"
+    credClose.BorderSizePixel = 0
+    credClose.BackgroundColor3 = Color3.fromRGB(255, 61, 136)
+    credClose.Size = UDim2.new(0, 26, 0, 26)
+    credClose.Position = UDim2.new(1, -32, 0, 4)
+    credClose.Text = "X"
+    credClose.TextSize = 14
+    credClose.TextColor3 = Color3.new(1, 1, 1)
+    credClose.FontFace = Font.new("rbxasset://fonts/families/ComicNeueAngular.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    credClose.ZIndex = 22
+    Instance.new("UICorner", credClose).CornerRadius = UDim.new(0, 4)
+    grad(credClose, Color3.fromRGB(255, 100, 165), Color3.fromRGB(220, 40, 115), 90)
+    hoverFx(credClose)
+
+    local shellScale = Instance.new("UIScale", shell)
+    shellScale.Scale = 0
+
+    gui.Parent = CoreGui
+
+    return gui, shell, mainBox, gearList, closeBtn, minBtn, plusBtn, credBtn, modeLbl, inputBox, switchBtn, startBtn, credPanel, credClose, shellScale
+end
+
+local playerGui = vibe:WaitForChild("PlayerGui")
+for _, name in ipairs({ "ToolVoidByTory", "ToolVoid", "ToolVoidNotify", "ToolVoidFlash" }) do
+    local a = CoreGui:FindFirstChild(name)
+    if a then a:Destroy() end
+    local b = playerGui:FindFirstChild(name)
+    if b then b:Destroy() end
+end
+
+local gui, shell, mainBox, gearList, closeBtn, minBtn, plusBtn, credBtn, modeLbl, inputBox, switchBtn, startBtn, credPanel, credClose, shellScale = buildUI()
+
+TweenService:Create(shellScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+
+local flashGui = Instance.new("ScreenGui")
+flashGui.Name = "ToolVoidFlash"
+flashGui.ResetOnSpawn = false
+flashGui.DisplayOrder = 9999
+flashGui.IgnoreGuiInset = true
+flashGui.Parent = CoreGui
+
+local flashFrame = Instance.new("Frame", flashGui)
+flashFrame.Name = "Flash"
+flashFrame.Size = UDim2.fromScale(1, 1)
+flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+flashFrame.BackgroundTransparency = 1
+flashFrame.BorderSizePixel = 0
+flashFrame.ZIndex = 9999
+
+local flashLock = 0
+local function screenFlash(color, dur)
+    local now = tick()
+    if now - flashLock < 1 then return end
+    flashLock = now
+    color = color or Color3.new(1, 1, 1)
+    dur = dur or 0.3
+    flashFrame.BackgroundColor3 = color
+    flashFrame.BackgroundTransparency = 0
+    TweenService:Create(flashFrame, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 1
+    }):Play()
+end
+
+local panicLock = 0
+local function panicReset()
+    local now = tick()
+    if now - panicLock < panicTimer then return end
+    panicLock = now
+    task.spawn(function()
+        pcall(function()
+            ReplicatedStorage:WaitForChild("01_server"):FireServer("cmd", "-re ")
+        end)
+    end)
+end
+
+local notifGui = Instance.new("ScreenGui")
+notifGui.Name = "ToolVoidNotify"
+notifGui.ResetOnSpawn = false
+notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+notifGui.DisplayOrder = 999
+notifGui.IgnoreGuiInset = true
+notifGui.Parent = CoreGui
+
+local notifRoot = Instance.new("Frame", notifGui)
+notifRoot.Name = "Container"
+notifRoot.BackgroundTransparency = 1
+notifRoot.Size = UDim2.new(0, 500, 0, 60)
+notifRoot.AnchorPoint = Vector2.new(0.5, 0)
+notifRoot.Position = UDim2.new(0.5, 0, 0, 20)
+notifRoot.ZIndex = 999
+
+local notifQ = {}
+local notifRunning = false
+
+local function runNotifQ()
+    if notifRunning then return end
+    notifRunning = true
+    while #notifQ > 0 do
+        local data = table.remove(notifQ, 1)
+        local msg, color = data.msg, data.color
+
+        local card = Instance.new("Frame")
+        card.Name = "Notif"
+        card.Parent = notifRoot
+        card.Size = UDim2.new(0, 0, 0, 48)
+        card.AnchorPoint = Vector2.new(0.5, 0)
+        card.Position = UDim2.new(0.5, 0, 0, -80)
+        card.BackgroundColor3 = Color3.fromRGB(22, 18, 32)
+        card.BackgroundTransparency = 1
+        card.BorderSizePixel = 0
+        card.ZIndex = 999
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+        local cardStroke = Instance.new("UIStroke", card)
+        cardStroke.Color = color
+        cardStroke.Thickness = 1
+        cardStroke.Transparency = 1
+        cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        cardStroke.ZIndex = 999
+
+        local accent = Instance.new("Frame", card)
+        accent.Name = "Accent"
+        accent.BackgroundColor3 = color
+        accent.BackgroundTransparency = 1
+        accent.BorderSizePixel = 0
+        accent.Size = UDim2.new(0, 3, 1, -14)
+        accent.Position = UDim2.new(0, 7, 0, 7)
+        accent.ZIndex = 1000
+        Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
+
+        local txt = Instance.new("TextLabel", card)
+        txt.Name = "Text"
+        txt.BackgroundTransparency = 1
+        txt.Size = UDim2.new(1, -26, 1, -8)
+        txt.Position = UDim2.new(0, 18, 0, 4)
+        txt.Text = msg
+        txt.TextColor3 = Color3.fromRGB(245, 240, 255)
+        txt.TextSize = 13
+        txt.TextWrapped = true
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.TextYAlignment = Enum.TextYAlignment.Center
+        txt.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+        txt.TextTransparency = 1
+        txt.ZIndex = 1000
+
+        local charW = #msg * 6.8
+        local tw = math.clamp(charW + 50, 260, 480)
+        local lines = math.ceil(charW / (tw - 30))
+        local th = math.clamp(24 + lines * 18, 48, 100)
+
+        TweenService:Create(card, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, tw, 0, th),
+            Position = UDim2.new(0.5, 0, 0, 0),
+            BackgroundTransparency = 0.05
+        }):Play()
+        TweenService:Create(cardStroke, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Transparency = 0.3
+        }):Play()
+        TweenService:Create(accent, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0
+        }):Play()
+        TweenService:Create(txt, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TextTransparency = 0
+        }):Play()
+
+        task.wait(2.8)
+
+        TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, th),
+            Position = UDim2.new(0.5, 0, 0, -80),
+            BackgroundTransparency = 1
+        }):Play()
+        TweenService:Create(cardStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Transparency = 1
+        }):Play()
+        TweenService:Create(accent, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            BackgroundTransparency = 1
+        }):Play()
+        TweenService:Create(txt, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            TextTransparency = 1
+        }):Play()
+
+        task.wait(0.4)
+        if card and card.Parent then card:Destroy() end
+    end
+    notifRunning = false
+end
+
+local function pushNotif(msg, m)
+    m = m or mode
+    local c = palette[m] or Color3.fromRGB(255, 120, 180)
+    table.insert(notifQ, { msg = msg, color = c })
+    task.spawn(runNotifQ)
+end
+
+local function refreshModeUI()
+    modeLbl.Text = mode
+    local target = palette[mode] or Color3.new(1, 1, 1)
+    TweenService:Create(modeLbl, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextColor3 = target }):Play()
+end
+
+refreshModeUI()
+
+local gearOpen = false
+
+local function rebuildGearList()
+    for _, child in ipairs(gearList:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+
+    local found = {}
+    local function scan(parent)
+        if not parent then return end
+        for _, obj in ipairs(parent:GetChildren()) do
+            if obj:IsA("Tool") and not found[obj.Name] then
+                found[obj.Name] = true
+            end
+        end
+    end
+
+    scan(vibe:FindFirstChild("Backpack"))
+    scan(vibe.Character)
+    scan(vibe:FindFirstChild("StarterGear"))
+
+    local count = 0
+    for tName, _ in pairs(found) do
+        count = count + 1
+        local b = Instance.new("TextButton", gearList)
+        b.Size = UDim2.new(1, 0, 0, 28)
+        b.BorderSizePixel = 0
+        b.TextSize = 14
+        b.TextScaled = false
+        b.Text = tName
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.BackgroundColor3 = (chosenGear == tName) and Color3.fromRGB(84, 168, 120) or Color3.fromRGB(121, 109, 159)
+        b.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+        grad(b, b.BackgroundColor3:Lerp(Color3.new(1, 1, 1), 0.15), b.BackgroundColor3, 90)
+        b.ZIndex = 11
+
+        b.MouseEnter:Connect(function()
+            TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = b.BackgroundColor3:Lerp(Color3.new(1, 1, 1), 0.22)
+            }):Play()
+        end)
+        b.MouseLeave:Connect(function()
+            local base = (chosenGear == tName) and Color3.fromRGB(84, 168, 120) or Color3.fromRGB(121, 109, 159)
+            TweenService:Create(b, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = base
+            }):Play()
+        end)
+        b.MouseButton1Click:Connect(function()
+            chosenGear = (chosenGear == tName) and nil or tName
+            rebuildGearList()
+        end)
+    end
+
+    if count == 0 then
+        local lb = Instance.new("TextLabel", gearList)
+        lb.Size = UDim2.new(1, 0, 0, 28)
+        lb.BackgroundTransparency = 1
+        lb.Text = "no tools found"
+        lb.TextColor3 = Color3.fromRGB(150, 140, 170)
+        lb.TextSize = 13
+        lb.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+        lb.ZIndex = 11
+    end
+end
+
+vibe.ChildAdded:Connect(function(c)
+    if c.Name == "Backpack" then
+        c.ChildAdded:Connect(function() if gearOpen then rebuildGearList() end end)
+        c.ChildRemoved:Connect(function() if gearOpen then rebuildGearList() end end)
+    end
+end)
+
+if vibe:FindFirstChild("Backpack") then
+    vibe.Backpack.ChildAdded:Connect(function() if gearOpen then rebuildGearList() end end)
+    vibe.Backpack.ChildRemoved:Connect(function() if gearOpen then rebuildGearList() end end)
+end
+
+vibe.CharacterAdded:Connect(function(c)
+    c.ChildAdded:Connect(function() if gearOpen then rebuildGearList() end end)
+    c.ChildRemoved:Connect(function() if gearOpen then rebuildGearList() end end)
+end)
+
+plusBtn.MouseButton1Click:Connect(function()
+    gearOpen = not gearOpen
+    if gearOpen then
+        rebuildGearList()
+        gearList.Visible = true
+        gearList.Position = UDim2.new(0, -160, 0, 0)
+        TweenService:Create(gearList, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, -145, 0, 0)
+        }):Play()
+    else
+        local tw = TweenService:Create(gearList, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(0, -160, 0, 0)
+        })
+        tw:Play()
+        tw.Completed:Connect(function()
+            if not gearOpen then gearList.Visible = false end
+        end)
+    end
+end)
+
+credBtn.MouseButton1Click:Connect(function()
+    if credsView then
+        credsView = false
+        local sc = credPanel:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", credPanel)
+        TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Scale = 0 }):Play()
+        TweenService:Create(credPanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+        task.wait(0.3)
+        credPanel.Visible = false
+    else
+        credsView = true
+        credPanel.Visible = true
+        credPanel.BackgroundTransparency = 1
+        local sc = credPanel:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", credPanel)
+        sc.Scale = 0
+        TweenService:Create(sc, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+        TweenService:Create(credPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.05 }):Play()
+    end
+end)
+
+credClose.MouseButton1Click:Connect(function()
+    credsView = false
+    local sc = credPanel:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", credPanel)
+    TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Scale = 0 }):Play()
+    TweenService:Create(credPanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+    task.wait(0.3)
+    credPanel.Visible = false
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    local sc = shell:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", shell)
+    TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Scale = 0 }):Play()
+    task.wait(0.35)
+    gui:Destroy()
+    notifGui:Destroy()
+    flashGui:Destroy()
+end)
+
+local shrunk = false
+minBtn.MouseButton1Click:Connect(function()
+    shrunk = not shrunk
+    if shrunk then
+        local tw = TweenService:Create(mainBox, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Size = UDim2.new(0.98889, 0, 0, 0)
+        })
+        tw:Play()
+        tw.Completed:Connect(function()
+            if shrunk then
+                mainBox.Visible = false
+                mainBox.Size = UDim2.new(0.98889, 0, 5.69231, 0)
+            end
+        end)
+        if gearOpen then
+            gearOpen = false
+            gearList.Visible = false
+        end
+    else
+        mainBox.Size = UDim2.new(0.98889, 0, 0, 0)
+        mainBox.Visible = true
+        TweenService:Create(mainBox, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0.98889, 0, 5.69231, 0)
+        }):Play()
+    end
+end)
+
+switchBtn.MouseButton1Click:Connect(function()
+    if mode == "VOID" then
+        mode = "EXTREME"
+    elseif mode == "EXTREME" then
+        mode = "BRING"
+    elseif mode == "BRING" then
+        mode = "GIVE"
+    else
+        mode = "VOID"
+    end
+    refreshModeUI()
+    local uiScale = mainBox:FindFirstChildOfClass("UIScale")
+    if not uiScale then uiScale = Instance.new("UIScale", mainBox) end
+    uiScale.Scale = 0.9
+    TweenService:Create(uiScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+end)
+
+local ownGear = {}
+local function refreshOwnGear()
+    ownGear = {}
+    local backpack = vibe:FindFirstChild("Backpack")
+    if backpack then
+        for _, v in ipairs(backpack:GetChildren()) do
+            if v:IsA("Tool") then ownGear[v] = true end
+        end
+    end
+    local char = vibe.Character
+    if char then
+        for _, v in ipairs(char:GetChildren()) do
+            if v:IsA("Tool") then ownGear[v] = true end
+        end
+    end
+end
+
+local function inMyTool(part, char)
+    local p = part.Parent
+    while p and p ~= char do
+        if p:IsA("Tool") then return true end
+        p = p.Parent
+    end
+    return false
+end
+
+local shieldCooldown = 0
+local function pingShield()
+    local now = tick()
+    if now - shieldCooldown < flashTimer then return end
+    shieldCooldown = now
+    pushNotif(grabLine(mode, "shielded"), mode)
+end
+
+local function denyTouch(char)
+    if not char then return end
+    local function kill(part)
+        if part:IsA("BasePart") and not inMyTool(part, char) then
+            part.CanTouch = false
+            local ti = part:FindFirstChildOfClass("TouchTransmitter")
+            if ti then ti:Destroy() end
+        end
+    end
+    for _, d in ipairs(char:GetDescendants()) do kill(d) end
+    char.DescendantAdded:Connect(function(d) kill(d) end)
+    task.spawn(function()
+        while char.Parent do
+            for _, d in ipairs(char:GetDescendants()) do kill(d) end
+            task.wait(0.2)
+        end
+    end)
+end
+
+local function guardTools(char)
+    if not char then return end
+    char.ChildAdded:Connect(function(obj)
+        if obj:IsA("Tool") and not ownGear[obj] then
+            pcall(function() obj:Destroy() end)
+            screenFlash(Color3.fromRGB(255, 200, 100), 0.2)
+            pingShield()
+        end
+    end)
+end
+
+local function guardMovement(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local anchor = hrp.CFrame
+    local lastCheck = tick()
+    local snapping = false
+
+    local function scan(current)
+        if snapping then return end
+        if busy or not hrp.Parent or not char.Parent then
+            anchor = current
+            lastCheck = tick()
+            return
+        end
+        local now = tick()
+        local dt = math.max(now - lastCheck, 1/60)
+        lastCheck = now
+        local delta = (current.Position - anchor.Position).Magnitude
+        local vel = hrp.AssemblyLinearVelocity
+        local allowed = vel.Magnitude * dt * velFactor + softTp
+        local isTp = delta > allowed
+        local isHard = delta > hardTp
+        local isFling = vel.Magnitude > 200 and (math.abs(vel.X) > 80 or math.abs(vel.Z) > 80 or vel.Y > 80)
+        if isTp or isFling then
+            snapping = true
+            hrp.CFrame = anchor
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            snapping = false
+            screenFlash(Color3.fromRGB(255, 80, 80), 0.3)
+            pingShield()
+            if isHard then
+                panicReset()
+            end
+        else
+            anchor = current
+        end
+    end
+
+    local function ticker()
+        if hrp.Parent then scan(hrp.CFrame) end
+    end
+
+    RunService.Heartbeat:Connect(ticker)
+    RunService.Stepped:Connect(ticker)
+    RunService.RenderStepped:Connect(ticker)
+    pcall(function() RunService.PreSimulation:Connect(ticker) end)
+    pcall(function() RunService.PostSimulation:Connect(ticker) end)
+
+    hrp:GetPropertyChangedSignal("CFrame"):Connect(function()
+        if hrp.Parent then scan(hrp.CFrame) end
+    end)
+end
+
+local function guardVoid(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local anchor = hrp.CFrame
+    local function scan()
+        if busy or not hrp.Parent or not char.Parent then
+            if hrp.Parent then anchor = hrp.CFrame end
+            return
+        end
+        local pos = hrp.Position
+        local fy = workspace.FallenPartsDestroyHeight or -500
+        local bad = (pos.Y ~= pos.Y) or (pos.X ~= pos.X) or (pos.Z ~= pos.Z)
+        local isVoid = pos.Y < (fy + 30) or pos.Y < -100 or pos.Y > 50000
+        if bad or isVoid then
+            hrp.CFrame = anchor
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            screenFlash(Color3.fromRGB(255, 80, 80), 0.3)
+            pingShield()
+            panicReset()
+        else
+            anchor = hrp.CFrame
+        end
+    end
+    RunService.Heartbeat:Connect(scan)
+    RunService.Stepped:Connect(scan)
+    RunService.RenderStepped:Connect(scan)
+end
+
+local function cleanMovers(char)
+    if not char then return end
+    for _, d in ipairs(char:GetDescendants()) do
+        if d:IsA("BodyPosition") or d:IsA("BodyGyro")
+            or d:IsA("BodyVelocity") or d:IsA("BodyAngularVelocity")
+            or d:IsA("BodyForce") or d:IsA("BodyThrust")
+            or d:IsA("AlignPosition") or d:IsA("AlignOrientation")
+            or d:IsA("LinearVelocity") or d:IsA("AngularVelocity")
+            or d:IsA("VectorForce") or d:IsA("Torque") then
+            pcall(function() d:Destroy() end)
+        end
+    end
+end
+
+local function guardFling(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    RunService.Stepped:Connect(function()
+        if busy or not hrp.Parent then return end
+        local vel = hrp.AssemblyLinearVelocity
+        if vel.Magnitude > 150 then
+            hrp.AssemblyLinearVelocity = Vector3.new(vel.X * 0.05, math.min(vel.Y, 50), vel.Z * 0.05)
+        end
+        if hrp.AssemblyAngularVelocity.Magnitude > 25 then
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+    end)
+end
+
+local function guardAnchor(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp:GetPropertyChangedSignal("Anchored"):Connect(function()
+        if hrp.Anchored and not busy then
+            hrp.Anchored = false
+        end
+    end)
+end
+
+local function guardVelocity(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp:GetPropertyChangedSignal("AssemblyLinearVelocity"):Connect(function()
+        if busy then return end
+        local v = hrp.AssemblyLinearVelocity
+        if v.Magnitude > 500 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            pingShield()
+        end
+    end)
+end
+
+local function watchChar(char)
+    if not char then return end
+    refreshOwnGear()
+    denyTouch(char)
+    guardTools(char)
+    guardMovement(char)
+    guardVoid(char)
+    cleanMovers(char)
+    guardFling(char)
+    guardAnchor(char)
+    guardVelocity(char)
+
+    task.spawn(function()
+        while char.Parent do
+            cleanMovers(char)
+            task.wait(0.2)
+        end
+    end)
+end
+
+if vibe.Character then
+    watchChar(vibe.Character)
+end
+
+vibe.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    refreshOwnGear()
+    watchChar(char)
+end)
+
+vibe.ChildAdded:Connect(function(c)
+    if c.Name == "Backpack" then
+        c.ChildAdded:Connect(function(obj)
+            if obj:IsA("Tool") then ownGear[obj] = true end
+        end)
+    end
+end)
+
+if vibe:FindFirstChild("Backpack") then
+    vibe.Backpack.ChildAdded:Connect(function(obj)
+        if obj:IsA("Tool") then ownGear[obj] = true end
+    end)
+end
+
+local function setBtnText(text, hold)
+    startBtn.Text = text
+    if hold then
+        task.delay(hold, function()
+            if startBtn and startBtn.Parent then startBtn.Text = "start" end
+        end)
+    end
+end
+
+local function goRun(targetName)
+    if busy then return end
+    if not chosenGear then
+        setBtnText("no tool", 1.4)
+        pushNotif("bro you aint pick a tool yet 💀 go click the + button and pick one fr, you really thought you could cook with imagination?? 💀🍳 LMAOOO", mode)
+        screenFlash(Color3.fromRGB(255, 200, 100), 0.25)
+        return
+    end
+    local char = vibe.Character
+    if char then
+        local hasChar = char:FindFirstChild(chosenGear)
+        local hasBag = vibe:FindFirstChild("Backpack") and vibe.Backpack:FindFirstChild(chosenGear)
+        if not hasChar and not hasBag then
+            setBtnText("tool gone", 1.4)
+            pushNotif("bro that tool '" .. chosenGear .. "' aint in your inventory anymore 💀 did it vanish into thin air or what?? pick a new one fr 💀🗑️", mode)
+            screenFlash(Color3.fromRGB(255, 200, 100), 0.25)
+            chosenGear = nil
+            rebuildGearList()
+            return
+        end
+    end
+    local runMode = mode
+    setBtnText("cookin")
+    pushNotif(grabLine(runMode, "working"), runMode)
+    local res = executeFlow(targetName)
+    if res == "NOT FOUND" then
+        setBtnText("where?", 1.2)
+        pushNotif(grabLine(runMode, "notfound"), runMode)
+    elseif res == "NO TOOL" then
+        setBtnText("no tool", 1.2)
+        pushNotif(grabLine(runMode, "notool"), runMode)
+    elseif res == "NO CHAR" then
+        setBtnText("no char", 1.2)
+        pushNotif(grabLine(runMode, "nochar"), runMode)
+    else
+        setBtnText("done", 0.6)
+        pushNotif(grabLine(runMode, "success"), runMode)
+    end
+    rebuildGearList()
+end
+
+startBtn.MouseButton1Click:Connect(function()
+    if busy then return end
+    if not chosenGear then
+        setBtnText("no tool", 1.4)
+        pushNotif("bro you aint pick a tool yet 💀 click the + button on top and pick one fr, you really thought you could cook without ingredients?? 💀🍳 LMAOOO", mode)
+        screenFlash(Color3.fromRGB(255, 200, 100), 0.25)
+        return
+    end
+    local name = inputBox.Text
+    if name == "" then
+        setBtnText("type!", 1)
+        pushNotif(grabLine(mode, "empty"), mode)
+        return
+    end
+    goRun(name)
+end)
+
+inputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed and inputBox.Text ~= "" and not busy then
+        goRun(inputBox.Text)
+    end
+end)
